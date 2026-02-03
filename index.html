@@ -13,8 +13,6 @@
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f0f9ff; -webkit-tap-highlight-color: transparent; }
         .animate-card { animation: fadeIn 0.6s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        .loading-dots:after { content: '.'; animation: dots 1.5s steps(5, end) infinite; }
-        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60% { content: '...'; } 80%, 100% { content: ''; } }
     </style>
 </head>
 <body class="text-slate-800">
@@ -36,30 +34,65 @@
                 'entry.1748333818': '', 'entry.1579464985': '', 'entry.1045920345': ''
             });
 
-            const handleSubmit = () => {
+            // 修改處：手動模擬原生表單提交，這是成功率最高的方法
+            const submitToGoogle = (e) => {
+                e.preventDefault();
                 setStatus('submitting');
+
+                const actionUrl = "https://docs.google.com/forms/d/e/1FAIpQLScWKCVehF5x0dh4jXpC6pitzsvmOJSzUrGvWHh3hfuW332JNQ/formResponse";
+                
+                // 1. 建立一個真實的隱藏表單
+                const realForm = document.createElement('form');
+                realForm.action = actionUrl;
+                realForm.method = 'POST';
+                realForm.target = 'hidden_iframe';
+                realForm.style.display = 'none';
+
+                // 2. 填入成功代碼中必備的元數據
+                const meta = { 'fbzx': '764606553543506960', 'pageHistory': '0', 'fvv': '1' };
+                Object.entries(meta).forEach(([n, v]) => {
+                    const input = document.createElement('input');
+                    input.name = n; input.value = v;
+                    realForm.appendChild(input);
+                });
+
+                // 3. 填入問卷資料
+                Object.keys(formData).forEach(key => {
+                    const value = formData[key];
+                    if (Array.isArray(value)) {
+                        value.forEach(v => {
+                            const input = document.createElement('input');
+                            input.name = key; input.value = v;
+                            realForm.appendChild(input);
+                        });
+                    } else {
+                        const input = document.createElement('input');
+                        input.name = key; input.value = value;
+                        realForm.appendChild(input);
+                    }
+                });
+
+                // 4. 掛載到 DOM 並提交
+                document.body.appendChild(realForm);
+                realForm.submit();
+
+                // 5. 兩秒後切換畫面並移除臨時表單
                 setTimeout(() => {
+                    document.body.removeChild(realForm);
                     setStatus('submitted');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
-                }, 2500);
+                }, 2000);
             };
 
             const handleRadio = (n, v) => setFormData(p => ({ ...p, [n]: v }));
             const handleCheck = (n, v) => {
                 setFormData(p => {
                     const c = p[n] || [];
-                    const newList = c.includes(v) ? c.filter(i => i !== v) : [...c, v];
-                    return { ...p, [n]: newList };
+                    return { ...p, [n]: c.includes(v) ? c.filter(i => i !== v) : [...c, v] };
                 });
             };
 
-            // 重要：修正原因區塊的判斷邏輯
-            const shouldShowReason = (val) => {
-                if (!val) return false;
-                // 檢查是否包含 "1.", "2.", "3." 
-                return val.includes("1.") || val.includes("2.") || val.includes("3.");
-            };
-
+            const shouldShow = (v) => v && (v.includes('1.') || v.includes('2.') || v.includes('3.'));
             const scoreOptions = ["1.非常不滿意", "2.不滿意", "3.尚可", "4.滿意", "5.非常滿意"];
 
             const renderScore = (label, name) => (
@@ -72,17 +105,14 @@
                             >{opt}</button>
                         ))}
                     </div>
-                    {/* 與成功範例一致：提交時的隱藏 Input */}
-                    <input type="hidden" name={name} value={formData[name]} />
                 </div>
             );
 
             if (status === 'submitted') return (
-                <div className="min-h-screen flex items-center justify-center p-6 bg-sky-50">
-                    <div className="max-w-md w-full bg-white p-12 rounded-[3rem] shadow-2xl text-center border-t-[15px] border-green-500">
+                <div className="min-h-screen flex items-center justify-center p-6 bg-sky-50 text-center">
+                    <div className="max-w-md w-full bg-white p-12 rounded-[3rem] shadow-2xl border-t-[15px] border-green-500">
                         <div className="text-6xl mb-6">✅</div>
                         <h2 className="text-3xl font-black text-slate-800 mb-4">提交成功</h2>
-                        <p className="text-slate-500 mb-10 text-lg">感謝您的寶貴回饋，資料已記錄。</p>
                         <button onClick={() => window.location.reload()} className="w-full bg-sky-600 text-white py-5 rounded-3xl font-black">返回</button>
                     </div>
                 </div>
@@ -92,30 +122,18 @@
                 <div className="min-h-screen pb-20 bg-sky-50/50">
                     <header className="relative h-80 flex items-center justify-center overflow-hidden">
                         <img src="https://images.unsplash.com/photo-1509391366360-2e959784a276?q=80&w=2070" className="absolute inset-0 w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-sky-900/40 text-center flex flex-col justify-center">
-                            <h1 className="text-white text-4xl font-black drop-shadow-2xl">日益智慧能源</h1>
-                            <p className="text-sky-50 text-xl font-bold uppercase tracking-widest mt-2">2025年度滿意度調查</p>
+                        <div className="absolute inset-0 bg-sky-900/40 flex items-center justify-center">
+                            <h1 className="text-white text-4xl font-black text-center">日益智慧能源<br/><span className="text-xl">2025年度滿意度調查</span></h1>
                         </div>
                     </header>
 
                     <main className="max-w-4xl mx-auto -mt-16 px-4 relative z-20">
-                        {/* 採用成功範例的傳輸通道 */}
-                        <iframe name="hidden_confirm" id="hidden_confirm" style={{display: 'none'}}></iframe>
+                        <iframe name="hidden_iframe" style={{display:'none'}}></iframe>
                         
-                        <form 
-                            action="https://docs.google.com/forms/d/e/1FAIpQLScWKCVehF5x0dh4jXpC6pitzsvmOJSzUrGvWHh3hfuW332JNQ/formResponse" 
-                            method="POST" 
-                            target="hidden_confirm" 
-                            onSubmit={handleSubmit} 
-                            className="space-y-4"
-                        >
-                            {/* 校驗元數據 (參考成功範例) */}
-                            <input type="hidden" name="fbzx" value="764606553543506960" />
-                            <input type="hidden" name="pageHistory" value="0" />
-
-                            <div className="p-8 bg-white rounded-[2.5rem] shadow-xl border-l-[12px] border-sky-700 animate-card mb-8">
+                        <form onSubmit={submitToGoogle} className="space-y-4">
+                            <div className="p-8 bg-white rounded-[2.5rem] shadow-xl border-l-[12px] border-sky-700 mb-8 animate-card">
                                 <label className="block text-slate-800 font-black mb-4 text-2xl">案場名稱 <span className="text-rose-500">*</span></label>
-                                <input required type="text" name="entry.899999615" value={formData['entry.899999615']} onChange={(e) => handleRadio('entry.899999615', e.target.value)} className="w-full px-6 py-4 bg-sky-50 border-2 rounded-2xl outline-none font-bold focus:border-sky-500" />
+                                <input required type="text" value={formData['entry.899999615']} onChange={(e) => handleRadio('entry.899999615', e.target.value)} className="w-full px-6 py-4 bg-sky-50 border-2 rounded-2xl outline-none font-bold focus:border-sky-500" />
                                 
                                 <label className="block text-slate-800 font-black mt-8 mb-4 text-2xl">填寫人職稱 <span className="text-rose-500">*</span></label>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -123,19 +141,17 @@
                                         <button key={r} type="button" onClick={() => handleCheck('entry.464377799', r)} className={`py-4 rounded-2xl border-2 font-bold ${formData['entry.464377799'].includes(r) ? 'bg-sky-700 text-white shadow-lg' : 'bg-white text-slate-400'}`}>{r}</button>
                                     ))}
                                 </div>
-                                {formData['entry.464377799'].map((val, idx) => <input key={idx} type="hidden" name="entry.464377799" value={val} />)}
                             </div>
 
                             {renderScore("1. 整體而言，您對目前的維運服務滿意程度為何？", "entry.1414352831")}
-                            {shouldShowReason(formData['entry.1414352831']) && (
+                            {shouldShow(formData['entry.1414352831']) && (
                                 <div className="p-8 bg-amber-50 rounded-[2.5rem] border-4 border-amber-200 animate-card mb-8">
-                                    <p className="font-bold text-amber-900 mb-4 italic text-lg text-center">1-1. 請勾選原因 (可複選)：</p>
+                                    <p className="font-bold text-amber-900 mb-4 italic">1-1. 請勾選原因 (可複選)：</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {["回應速度偏慢", "問題處理不夠即時", "技術溝通不清楚", "巡檢品質待加強", "故障排除效率不足", "配合度不足"].map(r => (
                                             <label key={r} className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm cursor-pointer hover:bg-amber-100 transition-all">
                                                 <input type="checkbox" checked={formData['entry.726589747'].includes(r)} onChange={() => handleCheck('entry.726589747', r)} className="w-6 h-6 accent-amber-600" />
                                                 <span className="font-bold text-slate-700">{r}</span>
-                                                {formData['entry.726589747'].includes(r) && <input type="hidden" name="entry.726589747" value={r} />}
                                             </label>
                                         ))}
                                     </div>
@@ -143,15 +159,14 @@
                             )}
 
                             {renderScore("2. 本公司的維運服務表現符合期待程度？", "entry.418035188")}
-                            {shouldShowReason(formData['entry.418035188']) && (
+                            {shouldShow(formData['entry.418035188']) && (
                                 <div className="p-8 bg-amber-50 rounded-[2.5rem] border-4 border-amber-200 animate-card mb-8">
-                                    <p className="font-bold text-amber-900 mb-4 italic text-lg text-center">2-1. 您認為落差較大的部分為何 (可複選)：</p>
+                                    <p className="font-bold text-amber-900 mb-4 italic">2-1. 落差較大部分 (可複選)：</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {["回應速度", "技術專業度", "服務內容深度", "溝通與說明方式", "整體資源投入"].map(r => (
-                                            <label key={r} className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm cursor-pointer">
+                                            <label key={r} className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm cursor-pointer hover:bg-amber-100 transition-all">
                                                 <input type="checkbox" checked={formData['entry.842552003'].includes(r)} onChange={() => handleCheck('entry.842552003', r)} className="w-6 h-6 accent-amber-600" />
                                                 <span className="font-bold text-slate-700">{r}</span>
-                                                {formData['entry.842552003'].includes(r) && <input type="hidden" name="entry.842552003" value={r} />}
                                             </label>
                                         ))}
                                     </div>
@@ -159,22 +174,20 @@
                             )}
 
                             {renderScore("3. 本公司的維運品質競爭力為何？", "entry.2061844101")}
-                            {shouldShowReason(formData['entry.2061844101']) && (
+                            {shouldShow(formData['entry.2061844101']) && (
                                 <div className="p-8 bg-amber-50 rounded-[2.5rem] border-4 border-amber-200 animate-card mb-8">
-                                    <p className="font-bold text-amber-900 mb-4 italic text-lg text-center">3-1. 需要加強的面向 (可複選)：</p>
+                                    <p className="font-bold text-amber-900 mb-4 italic">3-1. 需要加強面向 (可複選)：</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                         {["價值感受與費用對應", "回應效率", "技術能力", "主動性與改善建議", "溝通協調"].map(r => (
-                                            <label key={r} className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm cursor-pointer">
+                                            <label key={r} className="flex items-center gap-3 p-4 bg-white rounded-xl shadow-sm cursor-pointer hover:bg-amber-100 transition-all">
                                                 <input type="checkbox" checked={formData['entry.67805626'].includes(r)} onChange={() => handleCheck('entry.67805626', r)} className="w-6 h-6 accent-amber-600" />
                                                 <span className="font-bold text-slate-700">{r}</span>
-                                                {formData['entry.67805626'].includes(r) && <input type="hidden" name="entry.67805626" value={r} />}
                                             </label>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            <div className="py-6 px-4 font-black text-2xl text-sky-900 border-b-4 border-sky-600 inline-block mb-4">二、維運執行細項評估</div>
                             {renderScore("4. 定期巡檢與保養執行的確實程度", "entry.1003343879")}
                             {renderScore("5. 問題發現與回報的即時性", "entry.1664860146")}
                             {renderScore("6. 異常事件的回應速度", "entry.1578497332")}
@@ -184,34 +197,30 @@
                             {renderScore("10. 維運窗口的溝通順暢度", "entry.2141434383")}
                             {renderScore("11. 對客戶需求與現場狀況的理解程度", "entry.2082616046")}
 
-                            <div className="py-6 px-4 font-black text-2xl text-sky-900 border-b-4 border-sky-600 inline-block mb-4">三、總結與優化建議</div>
                             <div className="p-8 bg-white rounded-[2.5rem] shadow-xl border-l-[12px] border-emerald-500 mb-8 animate-card">
                                 <label className="block text-slate-800 font-black mb-6 text-2xl">12. 目前最需要優先改善的項目為：</label>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {["回應速度", "技術說明", "巡檢品質", "溝通方式"].map(item => (
-                                        <label key={item} className="flex flex-col items-center gap-3 p-4 bg-sky-50 rounded-2xl cursor-pointer hover:bg-emerald-50 transition-all border-2 border-transparent">
+                                        <label key={item} className="flex flex-col items-center gap-3 p-4 bg-sky-50 rounded-2xl cursor-pointer hover:bg-emerald-50 transition-all">
                                             <input type="checkbox" checked={formData['entry.951165679'].includes(item)} onChange={() => handleCheck('entry.951165679', item)} className="w-8 h-8 accent-emerald-500" />
                                             <span className="font-black text-slate-700 text-center">{item}</span>
-                                            {formData['entry.951165679'].includes(item) && <input type="hidden" name="entry.951165679" value={item} />}
                                         </label>
                                     ))}
                                 </div>
                             </div>
                             
-                            {renderScore("13. 整體而言，目前維運服務是否仍有明顯改善空間？", "entry.1748333818")}
+                            {renderScore("13. 是否仍有明顯改善空間？", "entry.1748333818")}
 
                             <div className="p-8 bg-white rounded-[2.5rem] shadow-xl border-l-[12px] border-emerald-600 animate-card">
-                                <label className="block text-slate-800 font-black mb-4 text-2xl">14. 您最希望優化的是？ <span className="text-rose-500">*</span></label>
-                                <textarea required name="entry.1579464985" value={formData['entry.1579464985']} onChange={(e) => handleRadio('entry.1579464985', e.target.value)} rows="4" className="w-full px-6 py-4 bg-sky-50 border-2 rounded-2xl outline-none font-bold focus:border-emerald-500 transition-all shadow-inner" placeholder="請輸入建議內容..." />
-                                
-                                <label className="block text-slate-800 font-black mt-10 mb-4 text-2xl">15. 其他建議或回饋 <span className="text-rose-500">*</span></label>
-                                <textarea required name="entry.1045920345" value={formData['entry.1045920345']} onChange={(e) => handleRadio('entry.1045920345', e.target.value)} rows="4" className="w-full px-6 py-4 bg-sky-50 border-2 rounded-2xl outline-none font-bold focus:border-emerald-500 transition-all shadow-inner" placeholder="請輸入回饋內容..." />
+                                <label className="block text-slate-800 font-black mb-4 text-2xl">14. 最希望優化的是？ *</label>
+                                <textarea required value={formData['entry.1579464985']} onChange={(e) => handleRadio('entry.1579464985', e.target.value)} rows="4" className="w-full px-6 py-4 bg-sky-50 border-2 rounded-2xl outline-none font-bold" />
+                                <label className="block text-slate-800 font-black mt-10 mb-4 text-2xl">15. 其他建議或回饋 *</label>
+                                <textarea required value={formData['entry.1045920345']} onChange={(e) => handleRadio('entry.1045920345', e.target.value)} rows="4" className="w-full px-6 py-4 bg-sky-50 border-2 rounded-2xl outline-none font-bold" />
                             </div>
 
-                            <button type="submit" className={`w-full py-8 rounded-[3rem] text-3xl font-black text-white shadow-2xl transition-all ${status === 'submitting' ? 'bg-slate-400 cursor-wait animate-pulse' : 'bg-gradient-to-r from-sky-600 to-sky-700 hover:scale-[1.02] active:scale-95'}`}>
-                                {status === 'submitting' ? <span className="loading-dots">資料傳輸中</span> : '確認提交調查'}
+                            <button type="submit" className={`w-full py-8 rounded-[3rem] text-3xl font-black text-white shadow-2xl transition-all ${status === 'submitting' ? 'bg-slate-400 cursor-wait animate-pulse' : 'bg-sky-600 hover:scale-[1.02]'}`}>
+                                {status === 'submitting' ? '資料傳送中...' : '確認提交調查'}
                             </button>
-                            <p className="text-center text-slate-400 text-sm mt-6 font-bold pb-10">日益智慧能源股份有限公司 - 2025年度滿意度調查</p>
                         </form>
                     </main>
                 </div>
